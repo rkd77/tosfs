@@ -219,6 +219,7 @@ class DSK:
         self.tracks[tn+1])
 
     def show_header(self):
+        pass
         #self.show_info("", self.data[:0x22])
         #self.show_info("Creator", self.data[0x22:0x30])
         #print "Number of tracks", self.number_of_tracks
