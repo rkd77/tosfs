@@ -64,9 +64,9 @@ def name(tekst):
 
 
 def get_size(entry):
-    #if entry[LAST] == 0:
-    #    return entry[N128] * 128
-    return entry[N128] * 128 + entry[LAST]
+    if entry[LAST] == 0:
+        return entry[N128] * 128
+    return entry[N128] * 128 - 256 + entry[LAST]
 
 class TOS:
     """
@@ -124,11 +124,13 @@ class TOS:
             self.entries.append(a)
 
     def read_block(self, numer, bytes):
+        print "read_block: numer=%d bytes=%d" % (numer, bytes)
         t = 4 + numer / 4
         n = numer % 4
         data = self.read_track_data(t)
         if bytes > 1024:
             bytes = 1024
+        print "t=%d n=%d bytes=%d" % (t, n, bytes)
         return (data[n * 1024: n * 1024 + bytes], bytes)
 
     def get_size(self, entry):
@@ -199,7 +201,7 @@ class DSK:
 
 
     def show_track_info(self, number):
-        t = self.data[self.tracks[number]:self.tracks[number]+0x18]
+        t = self.data[self.tracks[number]:self.tracks[number]+0x18+128]
         self.show_info('Track info:', t[:0xc])
         print "Track number", t[0x10]
         print "Side number", t[0x11]
@@ -207,6 +209,7 @@ class DSK:
         print "Number of sectors",t[0x15]
         print "GAP#3 length", t[0x16]
         print "Filler byte",t[0x17]
+        print "Sector info", t[0x18:0x18+128]
 
     def get_track_info(self, number, side):
         """
@@ -226,8 +229,8 @@ class DSK:
         #print "Number of tracks", self.number_of_tracks
         #print "Size of track", self.size_of_track
         #print "Rozmiar =", 0x100 + self.number_of_tracks * self.number_of_sides * self.size_of_track
-        #for i in xrange(self.number_of_tracks):
-        #    self.show_track_info(i)
+        for i in xrange(self.number_of_tracks):
+            self.show_track_info(i)
 
 
 class TOSFS(fuse.Fuse):

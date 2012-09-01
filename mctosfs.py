@@ -52,9 +52,9 @@ def name(tekst):
     return "".join(map(lambda x: chr(x & 127), t))
 
 def get_size(entry):
-    #if entry[LAST] == 0:
-    #    return entry[N128] * 128
-    return entry[N128] * 128 + entry[LAST]
+    if entry[LAST] == 0:
+        return entry[N128] * 128
+    return entry[N128] * 128 - 256 + entry[LAST]
 
 class TOS:
     """
@@ -112,8 +112,10 @@ class TOS:
             self.entries.append(a)
 
     def read_block(self, numer, bytes):
+        #print "read_block: numer =", numer, "bytes =", bytes
         t = 4 + numer / 4
         n = numer % 4
+        #print "t =", t, "n =", n
         data = self.read_track_data(t)
         if bytes > 1024:
             bytes = 1024
