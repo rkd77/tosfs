@@ -112,14 +112,15 @@ class TOS:
             self.entries.append(a)
 
     def read_block(self, numer, bytes):
-        #print "read_block: numer =", numer, "bytes =", bytes
+        #print "read_block: numer=%d bytes=%d" % (numer, bytes)
         t = 4 + numer / 4
         n = numer % 4
-        #print "t =", t, "n =", n
         data = self.read_track_data(t)
-        if bytes > 1024:
-            bytes = 1024
-        return (data[n * 1024: n * 1024 + bytes], bytes)
+        if bytes > self.dsk.block_size:
+            bytes = self.dsk.block_size
+        #print "t=%d n=%d bytes=%d" % (t, n, bytes)
+        return (data[n * self.dsk.block_size: n * self.dsk.block_size + bytes],
+        bytes)
 
     def get_size(self, entry):
         e = filter(lambda x: (x[NAME] == entry[NAME]) and \
@@ -174,6 +175,12 @@ class DSK:
         self.data = array.array('B', self.f)
         self.number_of_tracks = self.data[0x30]
         self.number_of_sides = self.data[0x31]
+
+        if (self.number_of_sides > 1) and (self.number_of_tracks >= 80):
+            self.block_size = 4096
+        else:
+            self.block_size = 1024
+
         self.size_of_track = self.data[0x32] + 256 * self.data[0x33]
         self.tracks = []
         n = 0x100
@@ -189,14 +196,15 @@ class DSK:
 
 
     def show_track_info(self, number):
-        t = self.data[self.tracks[number]:self.tracks[number]+0x18]
+        t = self.data[self.tracks[number]:self.tracks[number]+0x18+128]
         self.show_info('Track info:', t[:0xc])
-        #print "Track number", t[0x10]
-        #print "Side number", t[0x11]
-        #print "Sector_size", t[0x14]
-        #print "Number of sectors",t[0x15]
-        #print "GAP#3 length", t[0x16]
-        #print "Filler byte",t[0x17]
+        print "Track number", t[0x10]
+        print "Side number", t[0x11]
+        print "Sector_size", t[0x14]
+        print "Number of sectors",t[0x15]
+        print "GAP#3 length", t[0x16]
+        print "Filler byte",t[0x17]
+        print "Sector info", t[0x18:0x18+128]
 
     def get_track_info(self, number, side):
         """
@@ -211,15 +219,13 @@ class DSK:
         self.tracks[tn+1])
 
     def show_header(self):
-        self.show_info("", self.data[:0x22])
-        self.show_info("Creator", self.data[0x22:0x30])
+        #self.show_info("", self.data[:0x22])
+        #self.show_info("Creator", self.data[0x22:0x30])
         #print "Number of tracks", self.number_of_tracks
         #print "Size of track", self.size_of_track
         #print "Rozmiar =", 0x100 + self.number_of_tracks * self.number_of_sides * self.size_of_track
         #for i in xrange(self.number_of_tracks):
         #    self.show_track_info(i)
-
-
 
 def show_list(path):
 

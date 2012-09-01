@@ -128,10 +128,11 @@ class TOS:
         t = 4 + numer / 4
         n = numer % 4
         data = self.read_track_data(t)
-        if bytes > 1024:
-            bytes = 1024
+        if bytes > self.dsk.block_size:
+            bytes = self.dsk.block_size
         print "t=%d n=%d bytes=%d" % (t, n, bytes)
-        return (data[n * 1024: n * 1024 + bytes], bytes)
+        return (data[n * self.dsk.block_size: n * self.dsk.block_size + bytes],
+        bytes)
 
     def get_size(self, entry):
         e = filter(lambda x: (x[NAME] == entry[NAME]) and \
@@ -186,6 +187,12 @@ class DSK:
         self.data = array.array('B', self.f)
         self.number_of_tracks = self.data[0x30]
         self.number_of_sides = self.data[0x31]
+
+        if (self.number_of_sides > 1) and (self.number_of_tracks >= 80):
+            self.block_size = 4096
+        else:
+            self.block_size = 1024
+
         self.size_of_track = self.data[0x32] + 256 * self.data[0x33]
         self.tracks = []
         n = 0x100
@@ -231,7 +238,6 @@ class DSK:
         #print "Rozmiar =", 0x100 + self.number_of_tracks * self.number_of_sides * self.size_of_track
         for i in xrange(self.number_of_tracks):
             self.show_track_info(i)
-
 
 class TOSFS(fuse.Fuse):
     """
