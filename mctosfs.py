@@ -45,9 +45,9 @@ def copyout(diskname, name, out):
 
     dsk = DSK(diskname)
     tos = TOS(dsk)
-    data = tos.read_file(name).tostring()
+    data = tos.read_file(name)
     f = open(out, "wb")
-    f.write(data)
+    data.tofile(f)
     f.close()
 
 if __name__ == "__main__":

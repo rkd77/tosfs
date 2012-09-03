@@ -151,7 +151,7 @@ class TOSFS(fuse.Fuse):
     def read ( self, path, length, offset ):
         print '*** read', path, length, offset
 
-        data = self.tos.read_file(path)
+        data = self.tos.read_file(path[1:])
         return data[offset:offset+length].tostring()
 
         #return -errno.ENOENT
