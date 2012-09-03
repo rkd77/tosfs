@@ -53,12 +53,14 @@ class TOSFS(fuse.Fuse):
         """
 
         st = fuse.Stat()
-        #st.st_mode = stat.S_IFDIR | 0755
+        st.st_mode = stat.S_IFDIR | 0755
         st.st_nlink = 2
         st.st_atime = 0
         st.st_mtime = st.st_atime
         st.st_ctime = st.st_atime
         st.st_uid = st.st_gid = 501
+        st.st_ino = 0
+        st.st_size = 0
 
         c = path.count("/")
         if c == 1:
@@ -73,9 +75,7 @@ class TOSFS(fuse.Fuse):
 
         for i in self.tos.entries:
             if i[NR_OF_DIR] == nr_of_dir and filename == i[NAME]:
-                if i[NAME].endswith("DIR"):
-                    st.st_mode = stat.S_IFDIR | 0755
-                else:
+                if not i[NAME].endswith("DIR"):
                     st.st_mode = stat.S_IFREG | 0644
                 st.st_ino = i[0]
                 st.st_size = self.tos.get_size(i)
