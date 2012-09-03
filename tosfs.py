@@ -35,7 +35,6 @@ class TOSFS(fuse.Fuse):
         self.dsk.show_header()
 
         self.tos = TOS(self.dsk)
-        self.tos.read_dir()
         print 'Init complete.'
 
     def getattr(self, path):

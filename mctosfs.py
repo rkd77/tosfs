@@ -16,29 +16,35 @@ def show_list(path):
 
     dsk = DSK(path)
     tos = TOS(dsk)
-    tos.read_dir()
     links = 1
     gid = "77"
     uid = "77"
     t = "Jan  1 1970"
+    #print tos.entries
+    lista = []
     for i in tos.entries:
         if i[NO] != 0:
             continue
-        if i[NR_OF_DIR] > 127:
+        if i[NR_OF_DIR] == 255:
             continue
+        #print i
+        #continue
         if i[NAME].endswith('.DIR'):
             typ = "drwxrwxrwx"
         else:
             typ = "-rw-rw-rw-"
         size = tos.get_size(i)
-        print "%s %4d %s %s %14d %s %s" % (typ, links, uid,
-        gid, size, t, i[NAME])
+        lista.append((typ, links, uid, gid, size, t, tos.get_name(i)))
+    lista.sort(key = lambda x: x[-1])
+    for i in lista:
+        print "%s %4d %s %s %14d %s %s" % \
+        (i[0], i[1], i[2], i[3], i[4], i[5], i[6])
+         
 
 def copyout(diskname, name, out):
 
     dsk = DSK(diskname)
     tos = TOS(dsk)
-    tos.read_dir()
     data = tos.read_file(name)
     f = open(out, "wb")
     f.write(data)

@@ -54,7 +54,11 @@ class TOS:
     """
     def __init__(self, dsk):
         self.dsk = dsk
+        self.dirs = {}
+        self.names = {}
         self.read_disk()
+        self.read_dir()
+        self.gen_names()
 
     def read_track_data(self, track):
         t = self.dsk.get_track_info(track, 0)
@@ -67,7 +71,6 @@ class TOS:
         self.read_track_data(2) + \
         self.read_track_data(3)
         self.directory = self.read_track_data(4)
-
 
     def list_entry(self, entry, number):
         """
@@ -84,6 +87,8 @@ class TOS:
         no = entry[0x0c]
         size_of_last = entry[0x0d]
         n128 =  entry[0x0f]
+        if (n128 == 0) and (size_of_last == 0) and (no == 0) and (nr_of_dir != 255):
+            self.dirs[entry[0x10]] = number
         
         #print "Numer podkatalogu:", entry[0]
         #print "Nazwa:", name(entry[1:0x9]) + "." + name(entry[0x9:0xc])
@@ -125,17 +130,24 @@ class TOS:
         return size
 
     def find_entry(self, name, nr):
-        for e in self.entries:
-            if e[NO] != nr:
-                continue
-            if e[NAME] == name:
-                return e
+
+        if name in self.names:
+            entry = self.entries[self.names[name]]
+            if nr == 0:
+                return entry
+            else:
+                name = name.split("/")[-1]
+                for i in self.entries:
+                    if i[NAME] == name and i[NO] == nr and i[NR_OF_DIR] == entry[NR_OF_DIR]:
+                        return i
 
     def read_file(self, name):
         d = array.array('B')
         nr = 0
         while True:
             entry = self.find_entry(name, nr)
+            if not entry:
+                return d
             if DEBUG: print "read_file:", entry
             left = get_size(entry)
             if DEBUG: print "left", left
@@ -157,6 +169,30 @@ class TOS:
         data = self.read_file(name)
         #print "data = ", data[offset:offset+length]
         return data[offset:offset+length].tostring()
+
+    def find_dir_entry(self, nr):
+
+        for i in self.entries:
+            if (i[N128] == 0) and (i[LAST] == 0) and (i[NO] == 0) and \
+            (i[-1][0] == nr):
+                return i
+
+    def get_name(self, entry):
+
+        parent = entry[NR_OF_DIR] & 127
+        if parent:
+            return self.get_name(self.entries[self.dirs[parent]]) + '/' + entry[NAME]
+        return entry[NAME]
+
+    def gen_names(self):
+
+        for i in xrange(1, 128):
+            if self.entries[i][NR_OF_DIR] > 128:
+                continue
+            if self.entries[i][NO] != 0:
+                continue
+            name = self.get_name(self.entries[i])
+            self.names[name] = i
 
 class DSK:
     """
