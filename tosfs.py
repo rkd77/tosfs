@@ -150,11 +150,11 @@ class TOSFS(fuse.Fuse):
 
     def read ( self, path, length, offset ):
         print '*** read', path, length, offset
-        for i in self.tos.entries:
-            if path[1:] == i[NAME]:
-                return self.tos.get_data(i[NAME], length, offset)
 
-        return -errno.ENOENT
+        data = self.tos.read_file(path)
+        return data[offset:offset+length].tostring()
+
+        #return -errno.ENOENT
 
 #    def readlink ( self, path ):
 #        print '*** readlink', path
