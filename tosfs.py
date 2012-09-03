@@ -53,16 +53,30 @@ class TOSFS(fuse.Fuse):
         """
 
         st = fuse.Stat()
-        st.st_mode = stat.S_IFDIR | 0755
+        #st.st_mode = stat.S_IFDIR | 0755
         st.st_nlink = 2
         st.st_atime = 0
         st.st_mtime = st.st_atime
         st.st_ctime = st.st_atime
         st.st_uid = st.st_gid = 501
 
+        c = path.count("/")
+        if c == 1:
+            nr_of_dir = 0
+            filename = path[1:]
+        else:
+            dd = path.split("/")
+            ff = "/".join(dd[1:-1])
+            i = self.tos.names[ff]
+            nr_of_dir = self.tos.entries[i][-1][0]
+            filename = dd[-1]
+
         for i in self.tos.entries:
-            if path[1:] == i[NAME]:
-                st.st_mode = stat.S_IFREG | 0755
+            if i[NR_OF_DIR] == nr_of_dir and filename == i[NAME]:
+                if i[NAME].endswith("DIR"):
+                    st.st_mode = stat.S_IFDIR | 0755
+                else:
+                    st.st_mode = stat.S_IFREG | 0644
                 st.st_ino = i[0]
                 st.st_size = self.tos.get_size(i)
                 return st
@@ -82,9 +96,16 @@ class TOSFS(fuse.Fuse):
 
     def readdir(self, path, offset):
         print "readdir: path =",path,"offset =",offset
+        if path == "/":
+            nr_of_dir = 0
+        else:
+            i = self.tos.names[path[1:]]
+            nr_of_dir = self.tos.entries[i][-1][0]
+        print nr_of_dir
         entries = [fuse.Direntry("."), fuse.Direntry("..")]
-        ee = filter(lambda x: (x[NR_OF_DIR] < 128) and (x[NO] == 0), self.tos.entries)
+        ee = filter(lambda x: x[NR_OF_DIR] == nr_of_dir and x[NO] == 0, self.tos.entries)
         e = map(lambda x: fuse.Direntry(x[NAME]), ee)
+        #print ee
         return entries + e
 
 #    def getdir(self, path):
