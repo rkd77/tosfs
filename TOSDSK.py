@@ -1,4 +1,5 @@
 import array
+import sys
 
 NAME = 1
 NR_OF_DIR = 2
@@ -13,6 +14,8 @@ DATA_BEGIN = 3
 DATA_END = 4
 
 DEBUG = 0
+
+SECTORS = (0, 7, 14, 5, 12, 3, 10, 1, 8, 15, 6, 13, 4, 11, 2, 9)
 
 def dirFromList(list):
     """
@@ -49,6 +52,19 @@ def get_size(entry):
         return entry[N128] * 128
     return entry[N128] * 128 - 256 + entry[LAST]
 
+def log(text):
+
+    if DEBUG:
+        sys.stderr.write(text + "\n")
+
+def tostr(a):
+    st = ''
+    i = 0
+    for c in a:
+        st += "%d %d %c\n" % (i, c, c)
+        i += 1
+    return st
+
 class TOS:
     """
     """
@@ -60,10 +76,31 @@ class TOS:
         self.read_dir()
         self.gen_names()
 
+    def read_sector(self, track, sector):
+
+        log("read_sector: track=%d sector=%d" % (track, sector))
+        sector = SECTORS[sector]
+        return self.dsk.read_sector(track, sector)
+
     def read_track_data(self, track):
-        t = self.dsk.get_track_info(track, 0)
-        if DEBUG: print "read_track_data:", track, t
-        return self.dsk.data[t[DATA_BEGIN]:t[DATA_END]]
+
+        data = array.array('B')
+        for i in xrange(16):
+            data += self.read_sector(track, i)
+        return data
+
+    def read_block(self, numer, bytes):
+        log("read_block: numer=%d bytes=%d" % (numer, bytes))
+        t = 4 + numer // 4
+        #t = numer / 4
+        n = numer % 4
+        data = array.array('B')
+        for i in xrange(4):
+            data += self.read_sector(t, n * 4 + i)
+        if bytes > 1024:
+            bytes = 1024
+        log("read_block: data=%s" % tostr(data))
+        return data[:bytes], bytes
 
     def read_disk(self):
         self.system = self.read_track_data(0) + \
@@ -76,7 +113,7 @@ class TOS:
         """
         Returns number, name, dir, no, size_of_last, n128, allocation
         """
-        if DEBUG: print "list_entry",number, entry
+        #log("list_entry number=%d entry=%s" % (number, entry))
         nazwa = name(entry[1:0x09])
         n2 = name(entry[0x09:0x0c])
         if n2:
@@ -107,19 +144,8 @@ class TOS:
         self.entries = []
         for i in range(128):
             a = self.list_entry(self.directory[i * 32 : i * 32 + 32], i)
-            if DEBUG: print a
+            log("read_dir: a=%s" % str(a))
             self.entries.append(a)
-
-    def read_block(self, numer, bytes):
-        if DEBUG: print "read_block: numer=%d bytes=%d" % (numer, bytes)
-        t = 4 + numer / 4
-        n = numer % 4
-        data = self.read_track_data(t)
-        if bytes > self.dsk.block_size:
-            bytes = self.dsk.block_size
-        if DEBUG: print "t=%d n=%d bytes=%d" % (t, n, bytes)
-        return (data[n * self.dsk.block_size: n * self.dsk.block_size + bytes],
-        bytes)
 
     def get_size(self, entry):
         e = filter(lambda x: (x[NAME] == entry[NAME]) and \
@@ -130,9 +156,15 @@ class TOS:
         return size
 
     def find_entry(self, name, nr):
-
+        log("find_entry: name = %s, nr = %d self.names=%s" % (name, nr, self.names))
         if name in self.names:
-            entry = self.entries[self.names[name]]
+            log("name in self.names")
+            #log("self.entries = %s" % self.entries)
+            i = self.names[name]
+            log("i = %d" % i)
+            log("len=%d" % len(self.entries))
+            entry = self.entries[i]
+            log("entry = %s" % str(entry))
             if nr == 0:
                 return entry
             else:
@@ -140,22 +172,28 @@ class TOS:
                 for i in self.entries:
                     if i[NAME] == name and i[NO] == nr and i[NR_OF_DIR] == entry[NR_OF_DIR]:
                         return i
+        else:
+            log("name in self.names failed")
 
     def read_file(self, name):
+        log("read_file: name=%s" % name)
         d = array.array('B')
         nr = 0
+        log("nr=%d" % nr)
         while True:
             entry = self.find_entry(name, nr)
             if not entry:
+                log("not entry")
                 return d
-            if DEBUG: print "read_file:", entry
+            log("read_file: entry=%s" % str(entry))
             left = get_size(entry)
-            if DEBUG: print "left", left
+            log("left=%d" % left)
             for i in entry[-1]:
+                log("i = %d, left = %d" % (i, left))
                 if i == 0:
                     return d
                 data, r = self.read_block(i, left)
-                #print data, r
+                log("ddd=%s" % tostr(data))
                 left -= r
                 d.extend(data)
             if entry[N128] == 128:
@@ -165,7 +203,7 @@ class TOS:
         return d
 
     def get_data(self, name, length, offset):
-        if DEBUG: print "get_data: name = ", name, "length =",length,"offset =",offset
+        log("get_data: name = %s length = %d offset = %d" % (name, length, offset))
         data = self.read_file(name)
         #print "data = ", data[offset:offset+length]
         return data[offset:offset+length].tostring()
@@ -205,6 +243,7 @@ class DSK:
         self.data = array.array('B', self.f)
         self.number_of_tracks = self.data[0x30]
         self.number_of_sides = self.data[0x31]
+        self.Tra = []
         #print self.f[:9]
         if self.f[:9] == "EXTENDED ":
             self.extended = True
@@ -231,27 +270,34 @@ class DSK:
                 counter += 1
         self.tracks.append(n)
 
-        if DEBUG: print "DSK: number_of_tracks = %d number_of_sides = %d block_size = %d" \
-        % (self.number_of_tracks, self.number_of_sides, self.block_size)
-        if DEBUG: print "DSK:", self.extended
-        if DEBUG: print self.track_sizes
+        log("DSK: number_of_tracks = %d number_of_sides = %d block_size = %d" \
+        % (self.number_of_tracks, self.number_of_sides, self.block_size))
+        log("DSK: extended = %d" % self.extended)
+        log("tracksizes = %s" % self.track_sizes)
+
+    def read_sector(self, track, sector):
+
+        log("DSK: read_sector sector = %d" % sector)
+        begin = 256 + 256 * 17 * track + 256 + sector * 256
+        end = begin + 256
+        log("begin = %d end=%d" % (begin, end))
+        return self.data[begin:end]
 
     def show_info(self, prefix, a):
         info = ''.join(map(chr, a))
-        if DEBUG: print prefix, info
+        log("prefix=%s info=%s" % (prefix, info))
 
 
     def show_track_info(self, number):
         t = self.data[self.tracks[number]:self.tracks[number]+0x18+128]
         self.show_info('Track info:', t[:0xc])
-        if DEBUG:
-            print "Track number", t[0x10]
-            print "Side number", t[0x11]
-            print "Sector_size", t[0x14]
-            print "Number of sectors",t[0x15]
-            print "GAP#3 length", t[0x16]
-            print "Filler byte",t[0x17]
-            print "Sector info", t[0x18:0x18+128]
+        log("Track number = %d" % t[0x10])
+        log("Side number = %d" % t[0x11])
+        log("Sector_size = %d" % t[0x14])
+        log("Number of sectors = %d" % t[0x15])
+        log("GAP#3 length = %d" % t[0x16])
+        log("Filler byte = %d" % t[0x17])
+        log("Sector info = %s" % t[0x18:0x18+128])
 
     def get_track_info(self, number, side):
         """

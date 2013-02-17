@@ -145,13 +145,14 @@ class TOSFS(fuse.Fuse):
 #        return -errno.ENOSYS
 
     def open ( self, path, flags ):
-        print '*** open', path, flags
+        log('*** open path=%s flags=%d' % (path, flags))
         return None
 
     def read ( self, path, length, offset ):
-        print '*** read', path, length, offset
+        log('*** read %s %d %d' % (path, length, offset))
 
         data = self.tos.read_file(path[1:])
+        log("length = %d" % len(data))
         return data[offset:offset+length].tostring()
 
         #return -errno.ENOENT
