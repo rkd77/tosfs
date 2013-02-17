@@ -34,7 +34,7 @@ def header_prefix(name, typ, length, start):
     if name[0] == '.':
         name = name[1:]
     name += "           "
-    name = name[:10]
+    name = name[:10].lower()
     header.fromstring(name)
     header.append(length & 255)
     header.append(length / 256)
